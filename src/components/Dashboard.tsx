@@ -1,88 +1,39 @@
 import { useState, useEffect } from "react";
 import { TemperatureSensor } from "@/components/TemperatureSensor";
 import { MotionDetector } from "@/components/MotionDetector";
+import { FibaroSettings } from "@/components/FibaroSettings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Home, Wifi, WifiOff } from "lucide-react";
-
-// Mock data - replace with real Fibaro HC2 API calls
-const mockTemperatureSensors = [
-  {
-    id: "temp-001",
-    name: "Living Room",
-    temperature: 22.5,
-    unit: "C" as const,
-    location: "Main Floor",
-    trend: "stable" as const,
-    lastUpdate: "2 min ago",
-  },
-  {
-    id: "temp-002",
-    name: "Master Bedroom",
-    temperature: 20.1,
-    unit: "C" as const,
-    location: "Second Floor",
-    trend: "down" as const,
-    lastUpdate: "1 min ago",
-  },
-  {
-    id: "temp-003",
-    name: "Kitchen",
-    temperature: 24.8,
-    unit: "C" as const,
-    location: "Main Floor",
-    trend: "up" as const,
-    lastUpdate: "3 min ago",
-  },
-  {
-    id: "temp-004",
-    name: "Basement",
-    temperature: 18.2,
-    unit: "C" as const,
-    location: "Lower Level",
-    trend: "stable" as const,
-    lastUpdate: "5 min ago",
-  },
-];
-
-const mockMotionDetectors = [
-  {
-    id: "motion-001",
-    name: "Front Door",
-    location: "Main Entrance",
-    isActive: false,
-    lastTriggered: "2 hours ago",
-    batteryLevel: 85,
-  },
-  {
-    id: "motion-002",
-    name: "Living Room",
-    location: "Main Floor",
-    isActive: true,
-    lastTriggered: "Just now",
-    batteryLevel: 92,
-  },
-  {
-    id: "motion-003",
-    name: "Back Garden",
-    location: "Outdoor",
-    isActive: false,
-    lastTriggered: "Yesterday 11:30 PM",
-    batteryLevel: 67,
-  },
-  {
-    id: "motion-004",
-    name: "Upstairs Hallway",
-    location: "Second Floor",
-    isActive: false,
-    lastTriggered: "45 min ago",
-    batteryLevel: 23,
-  },
-];
+import { Button } from "@/components/ui/button";
+import { Home, Wifi, WifiOff, Settings, RefreshCw } from "lucide-react";
+import { fibaroApi, FibaroDevice, FibaroRoom } from "@/services/fibaroApi";
+import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
   const [isOnline, setIsOnline] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showSettings, setShowSettings] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [temperatureSensors, setTemperatureSensors] = useState<any[]>([]);
+  const [motionDetectors, setMotionDetectors] = useState<any[]>([]);
+  const [fibaroConfig, setFibaroConfig] = useState({
+    ipAddress: '',
+    username: '',
+    password: ''
+  });
+  const { toast } = useToast();
+
+  // Load saved config on component mount
+  useEffect(() => {
+    const savedConfig = localStorage.getItem('fibaroConfig');
+    if (savedConfig) {
+      const config = JSON.parse(savedConfig);
+      setFibaroConfig(config);
+      fibaroApi.setConfig(config);
+    } else {
+      setShowSettings(true); // Show settings if no config is saved
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -92,8 +43,78 @@ export function Dashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const activeMotionCount = mockMotionDetectors.filter(detector => detector.isActive).length;
-  const averageTemperature = mockTemperatureSensors.reduce((sum, sensor) => sum + sensor.temperature, 0) / mockTemperatureSensors.length;
+  const loadFibaroData = async () => {
+    if (!fibaroConfig.ipAddress) {
+      toast({
+        title: "Configuration Required",
+        description: "Please configure your Fibaro HC2 settings first.",
+        variant: "destructive",
+      });
+      setShowSettings(true);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const [tempDevices, motionDevices, rooms] = await Promise.all([
+        fibaroApi.getTemperatureSensors(),
+        fibaroApi.getMotionSensors(),
+        fibaroApi.getRooms(),
+      ]);
+
+      const formattedTempSensors = tempDevices.map(device => 
+        fibaroApi.formatTemperatureSensor(device, rooms)
+      );
+
+      const formattedMotionSensors = motionDevices.map(device => 
+        fibaroApi.formatMotionSensor(device, rooms)
+      );
+
+      setTemperatureSensors(formattedTempSensors);
+      setMotionDetectors(formattedMotionSensors);
+      setIsOnline(true);
+
+      toast({
+        title: "Data Updated",
+        description: `Loaded ${formattedTempSensors.length} temperature sensors and ${formattedMotionSensors.length} motion detectors.`,
+      });
+    } catch (error) {
+      console.error('Failed to load Fibaro data:', error);
+      setIsOnline(false);
+      toast({
+        title: "Connection Failed",
+        description: "Could not load data from Fibaro HC2. Check your settings and network connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfigChange = (newConfig: typeof fibaroConfig) => {
+    setFibaroConfig(newConfig);
+    fibaroApi.setConfig(newConfig);
+  };
+
+  const handleTestConnection = async (): Promise<boolean> => {
+    try {
+      return await fibaroApi.testConnection();
+    } catch {
+      return false;
+    }
+  };
+
+  // Auto-load data when config is available
+  useEffect(() => {
+    if (fibaroConfig.ipAddress && fibaroConfig.username && fibaroConfig.password) {
+      loadFibaroData();
+    }
+  }, [fibaroConfig]);
+
+  const activeMotionCount = motionDetectors.filter(detector => detector.isActive).length;
+  const averageTemperature = temperatureSensors.length > 0 
+    ? temperatureSensors.reduce((sum, sensor) => sum + sensor.temperature, 0) / temperatureSensors.length
+    : 0;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -110,12 +131,38 @@ export function Dashboard() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadFibaroData}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading ? 'Loading...' : 'Refresh'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
             <Badge variant={isOnline ? "default" : "destructive"} className="flex items-center space-x-1">
               {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
               <span>{isOnline ? "Online" : "Offline"}</span>
             </Badge>
           </div>
         </div>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <FibaroSettings
+            config={fibaroConfig}
+            onConfigChange={handleConfigChange}
+            onTestConnection={handleTestConnection}
+          />
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -133,10 +180,12 @@ export function Dashboard() {
           <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Avg Temperature</CardTitle>
-              <Badge variant="outline">{mockTemperatureSensors.length} Sensors</Badge>
+              <Badge variant="outline">{temperatureSensors.length} Sensors</Badge>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{averageTemperature.toFixed(1)}°C</div>
+              <div className="text-2xl font-bold text-primary">
+                {temperatureSensors.length > 0 ? `${averageTemperature.toFixed(1)}°C` : 'N/A'}
+              </div>
               <p className="text-xs text-muted-foreground">Across all sensors</p>
             </CardContent>
           </Card>
@@ -144,11 +193,17 @@ export function Dashboard() {
           <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">System Status</CardTitle>
-              <Badge variant="default" className="bg-status-online">Healthy</Badge>
+              <Badge variant="default" className="bg-status-online">
+                {isOnline ? 'Connected' : 'Disconnected'}
+              </Badge>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-status-online">All Good</div>
-              <p className="text-xs text-muted-foreground">All devices responding</p>
+              <div className={`text-2xl font-bold ${isOnline ? 'text-status-online' : 'text-status-offline'}`}>
+                {isOnline ? 'All Good' : 'Check Connection'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {isOnline ? 'All devices responding' : 'Fibaro HC2 unreachable'}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -157,26 +212,50 @@ export function Dashboard() {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground flex items-center space-x-2">
             <span>Temperature Sensors</span>
-            <Badge variant="outline">{mockTemperatureSensors.length}</Badge>
+            <Badge variant="outline">{temperatureSensors.length}</Badge>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {mockTemperatureSensors.map((sensor) => (
-              <TemperatureSensor key={sensor.id} {...sensor} />
-            ))}
-          </div>
+          {temperatureSensors.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {temperatureSensors.map((sensor) => (
+                <TemperatureSensor key={sensor.id} {...sensor} />
+              ))}
+            </div>
+          ) : (
+            <Card className="bg-card border-border">
+              <CardContent className="pt-6">
+                <p className="text-center text-muted-foreground">
+                  {fibaroConfig.ipAddress 
+                    ? "No temperature sensors found or connection failed." 
+                    : "Configure your Fibaro HC2 settings to see temperature sensors."}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Motion Detectors */}
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground flex items-center space-x-2">
             <span>Motion Detectors</span>
-            <Badge variant="outline">{mockMotionDetectors.length}</Badge>
+            <Badge variant="outline">{motionDetectors.length}</Badge>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {mockMotionDetectors.map((detector) => (
-              <MotionDetector key={detector.id} {...detector} />
-            ))}
-          </div>
+          {motionDetectors.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {motionDetectors.map((detector) => (
+                <MotionDetector key={detector.id} {...detector} />
+              ))}
+            </div>
+          ) : (
+            <Card className="bg-card border-border">
+              <CardContent className="pt-6">
+                <p className="text-center text-muted-foreground">
+                  {fibaroConfig.ipAddress 
+                    ? "No motion detectors found or connection failed." 
+                    : "Configure your Fibaro HC2 settings to see motion detectors."}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
