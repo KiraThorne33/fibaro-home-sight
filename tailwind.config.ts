@@ -52,6 +52,20 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				temperature: {
+					hot: 'hsl(var(--temperature-hot))',
+					warm: 'hsl(var(--temperature-warm))',
+					cool: 'hsl(var(--temperature-cool))',
+					cold: 'hsl(var(--temperature-cold))'
+				},
+				motion: {
+					active: 'hsl(var(--motion-active))',
+					inactive: 'hsl(var(--motion-inactive))'
+				},
+				status: {
+					online: 'hsl(var(--status-online))',
+					offline: 'hsl(var(--status-offline))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',

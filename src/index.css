@@ -8,35 +8,51 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 225 25% 15%;
+    --card-foreground: 210 40% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 225 25% 15%;
+    --popover-foreground: 210 40% 95%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 193 100% 50%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 225 20% 20%;
+    --secondary-foreground: 210 40% 90%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 225 15% 25%;
+    --muted-foreground: 210 20% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 193 80% 45%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 75% 55%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 225 20% 25%;
+    --input: 225 20% 25%;
+    --ring: 193 100% 50%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Smart Home Dashboard Colors */
+    --temperature-hot: 15 100% 60%;
+    --temperature-warm: 35 100% 55%;
+    --temperature-cool: 200 100% 60%;
+    --temperature-cold: 220 100% 65%;
+    
+    --motion-active: 120 100% 50%;
+    --motion-inactive: 210 20% 50%;
+    
+    --status-online: 120 100% 45%;
+    --status-offline: 0 75% 55%;
+
+    --gradient-dashboard: linear-gradient(135deg, hsl(222, 47%, 11%) 0%, hsl(225, 25%, 15%) 100%);
+    --glow-primary: 0 0 20px hsl(193 100% 50% / 0.3);
+    --glow-motion: 0 0 15px hsl(120 100% 50% / 0.4);
 
     --sidebar-background: 0 0% 98%;
 
